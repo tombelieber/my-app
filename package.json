@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.8.1",
+    "protobufjs": "^7.2.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-redux": "^8.0.1"
+    "react-redux": "^8.0.1",
+    "rust_wasm_deserialize": "./rust_wasm_deserialize/pkg"
   },
   "devDependencies": {
     "@testing-library/dom": "^9.2.0",
@@ -34,8 +36,12 @@
     "jsdom": "^21.1.0",
     "prettier": "^2.7.1",
     "prettier-config-nick": "^1.0.2",
+    "protobufjs-cli": "^1.1.2",
     "typescript": "^5.0.2",
     "vite": "^4.0.0",
+    "vite-plugin-rsw": "^2.0.11",
+    "vite-plugin-top-level-await": "^1.4.1",
+    "vite-plugin-wasm": "^3.3.0",
     "vitest": "^0.30.1"
   },
   "eslintConfig": {

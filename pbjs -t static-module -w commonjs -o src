@@ -1,0 +1,2 @@
+pbjs -t static-module -w es6 -o src/my-schema/compiled.js ./schema/mymodel.proto
+pbts -o src/my-schema/compiled.d.ts src/my-schema/compiled.js

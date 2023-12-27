@@ -28,3 +28,6 @@ build
 
 # Miscellaneous
 *.local
+
+/rust_wasm_deserialize/target
+/rust_wasm_deserialize/pkg

@@ -1,13 +1,14 @@
-import logo from "./logo.svg"
-import { Counter } from "./features/counter/Counter"
 import "./App.css"
+import Benchmark from "./features/rust-wasm-benchmark/Benchmark"
+import logo from "./logo.svg"
 
 function App() {
   return (
     <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
-        <Counter />
+        {/* <Counter /> */}
+        <Benchmark />
       </header>
     </div>
   )

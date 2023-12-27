@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package mypackage;
+
+message CustomMap {
+  map<string, bool> b = 1;
+  map<string, double> d = 2;
+  map<string, string> s = 3;
+  map<string, double> l = 4;
+}
+
+message MyModel {
+  string str1 = 1;
+  string str2 = 2;
+  string str3 = 3;
+  string str4 = 4;
+  string str5 = 5;
+  string str6 = 6;
+  bool bool1 = 7;
+  bool bool2 = 8;
+  bool bool3 = 9;
+  bool bool4 = 10;
+  bool bool5 = 11;
+  bool bool6 = 12;
+  double num1 = 13;
+  double num2 = 14;
+  double num3 = 15;
+  double num4 = 16;
+  double num5 = 17;
+  double num6 = 18;
+  CustomMap oMap = 19;
+  CustomMap pMap = 20;
+}
