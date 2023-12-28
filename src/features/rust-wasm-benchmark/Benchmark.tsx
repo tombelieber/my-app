@@ -59,11 +59,11 @@ const benchmarkTest = async (
 }
 
 async function runTest() {
-  let data2 = await fetchBinary("10k_binary.bin")
-  await benchmarkTest(data2, "10k_binary.bin")
+  // let data2 = await fetchBinary("10k_binary.bin")
+  // await benchmarkTest(data2, "10k_binary.bin")
 
-  // let data = await fetchBinary("1k_binary.bin")
-  // await benchmarkTest(data, "1k_binary.bin")
+  let data = await fetchBinary("1k_binary.bin")
+  await benchmarkTest(data, "1k_binary.bin")
 
   console.debug("[Finish]")
 }
@@ -73,7 +73,11 @@ const Benchmark: FC<BenchmarkProps> = () => {
   useEffect(() => {
     init().then((wasm) => {
       if (ran.current) return
-      runTest()
+
+      for (let i = 0; i < 10; i++) {
+        runTest()
+      }
+
       ran.current = true
     })
   }, [])

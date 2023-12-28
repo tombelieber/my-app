@@ -48,7 +48,7 @@ pub fn process_array_buffer(pointer: *const u8, length: usize) {
 }
 
 #[wasm_bindgen]
-pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<JsValue, JsValue> {
+pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<String, JsValue> {
     let performance = window()
         .expect("should have a window in this context")
         .performance()
@@ -82,6 +82,8 @@ pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<JsValue, JsValue> {
         performance.now() - start_time
     ));
 
-    JsValue::from_serde(&models)
-        .map_err(|e| JsValue::from_str(&format!("Failed to serialize to JSON: {}", e)))
+    // JsValue::from_serde(&models)
+    //     .map_err(|e| JsValue::from_str(&format!("Failed to serialize to JSON: {}", e)))
+    // * send a "done"
+    Ok("done".to_string())
 }

@@ -1,0 +1,26 @@
+# * rust prost deserialize vs js protobuf deserialize (ms)
+# * rust data not sent to JS
+
+* 10k
+[10k_binary.bin]1090.00/2653.10 = 0.41x (lower the better)
+[10k_binary.bin]327.40/2558.80 = 0.13x (lower the better)
+[10k_binary.bin]308.40/2580.20 = 0.12x (lower the better)
+[10k_binary.bin]315.60/2518.10 = 0.13x (lower the better)
+[10k_binary.bin]308.10/2535.20 = 0.12x (lower the better)
+[10k_binary.bin]309.50/2543.40 = 0.12x (lower the better)
+[10k_binary.bin]308.60/2563.40 = 0.12x (lower the better)
+[10k_binary.bin]308.60/2554.40 = 0.12x (lower the better)
+[10k_binary.bin]308.20/2582.50 = 0.12x (lower the better)
+[10k_binary.bin]309.80/2579.50 = 0.12x (lower the better)
+
+* 1k
+[1k_binary.bin]52.30/247.10 = 0.21x (lower the better)
+[1k_binary.bin]33.90/195.40 = 0.17x (lower the better)
+[1k_binary.bin]32.80/199.50 = 0.16x (lower the better)
+[1k_binary.bin]32.90/198.20 = 0.17x (lower the better)
+[1k_binary.bin]32.90/200.10 = 0.16x (lower the better)
+[1k_binary.bin]32.20/249.10 = 0.13x (lower the better)
+[1k_binary.bin]31.90/200.60 = 0.16x (lower the better)
+[1k_binary.bin]32.30/202.50 = 0.16x (lower the better)
+[1k_binary.bin]31.80/201.00 = 0.16x (lower the better)
+[1k_binary.bin]32.00/224.40 = 0.14x (lower the better)
