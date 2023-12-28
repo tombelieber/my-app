@@ -1,5 +1,6 @@
 use prost::Message;
 use wasm_bindgen::prelude::*;
+use web_sys::window;
 
 // Include the generated module. The module name will be derived from your .proto file.
 pub mod my_model {
@@ -48,6 +49,12 @@ pub fn process_array_buffer(pointer: *const u8, length: usize) {
 
 #[wasm_bindgen]
 pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<JsValue, JsValue> {
+    let performance = window()
+        .expect("should have a window in this context")
+        .performance()
+        .expect("performance should be available");
+    let start_time: f64 = performance.now();
+
     let mut offset = 0;
     let mut models = Vec::new();
 
@@ -69,6 +76,11 @@ pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<JsValue, JsValue> {
 
         offset += len;
     }
+
+    log(&format!(
+        "[wasm rust] process protobuf: {:?}ms",
+        performance.now() - start_time
+    ));
 
     JsValue::from_serde(&models)
         .map_err(|e| JsValue::from_str(&format!("Failed to serialize to JSON: {}", e)))

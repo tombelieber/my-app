@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "wasm": "wasm-pack build ./rust_wasm_deserialize --target web",
+    "wasm": "wasm-pack build ./rust_wasm_deserialize --target web --release",
     "dev": "yarn wasm && vite",
     "start": "vite",
     "build": "tsc && vite build",
@@ -20,7 +20,8 @@
     "protobufjs": "^7.2.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-redux": "^8.0.1"
+    "react-redux": "^8.0.1",
+    "rust_wasm_deserialize": "./rust_wasm_deserialize/pkg"
   },
   "devDependencies": {
     "@testing-library/dom": "^9.2.0",
