@@ -55,6 +55,75 @@ extern "C" {
 }
 
 #[wasm_bindgen]
+pub struct FlatBufferContainer {
+    buffers: Vec<Vec<u8>>,
+}
+
+#[wasm_bindgen]
+impl FlatBufferContainer {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> FlatBufferContainer {
+        FlatBufferContainer {
+            buffers: Vec::new(),
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn process_protobufs(&mut self, buffers: Vec<Uint8Array>) -> Result<(), JsValue> {
+        for buffer in buffers {
+            let mut bytes: Vec<u8> = vec![0; buffer.length() as usize];
+            buffer.copy_to(&mut bytes);
+
+            // Decode the Protobuf binary
+            let decoded_model: MyModel = MyModel::decode(&*bytes)
+                .map_err(|e: prost::DecodeError| JsValue::from_str(&e.to_string()))?;
+
+            // Encode to FlatBuffer
+            let fb: Vec<u8> = encode_model_to_flatbuffer(&decoded_model); // Your existing function
+            self.buffers.push(fb);
+        }
+        Ok(())
+    }
+    pub fn add_buffer(&mut self, buffer: Vec<u8>) {
+        self.buffers.push(buffer);
+    }
+
+    pub fn get_buffer_len(&self, index: usize) -> Result<usize, JsValue> {
+        self.buffers
+            .get(index)
+            .map(|b| b.len())
+            .ok_or_else(|| JsValue::from_str("Index out of bounds"))
+    }
+
+    pub fn get_buffer_ptr(&self, index: usize) -> Result<*const u8, JsValue> {
+        self.buffers
+            .get(index)
+            .map(|b| b.as_ptr())
+            .ok_or_else(|| JsValue::from_str("Index out of bounds"))
+    }
+
+    pub fn buffer_count(&self) -> usize {
+        self.buffers.len()
+    }
+
+    #[wasm_bindgen]
+    pub fn get_flatbuffer(&self, index: usize) -> Result<Uint8Array, JsValue> {
+        self.buffers
+            .get(index)
+            .map(|buffer| {
+                let uint8_array = unsafe { Uint8Array::view(&buffer) };
+                uint8_array
+            })
+            .ok_or_else(|| JsValue::from_str("Index out of bounds"))
+    }
+
+    #[wasm_bindgen]
+    pub fn get_flatbuffer_count(&self) -> usize {
+        self.buffers.len()
+    }
+}
+
+#[wasm_bindgen]
 pub fn process_array_buffer(pointer: *const u8, length: usize) {
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
     log(&format!("[wasm rust] received binary {:?}", slice));

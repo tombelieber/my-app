@@ -1,19 +1,54 @@
-import { isEqual } from "lodash"
 import { FC, memo, useEffect, useRef } from "react"
 import init, {
-  InitOutput,
+  FlatBufferContainer,
   deserialize_array_buffer,
 } from "rust_wasm_deserialize"
 import { concatenateUint8Arrays } from "./concatenateUint8Arrays"
 import { decodeUint8Arrays } from "./saveAsFile"
 import { deserialize } from "./serialize"
 
-function rustWasmDeserialize(buffer: Uint8Array) {
+function rustWasmDeserialize(filename: string, buffer: Uint8Array): number {
   try {
-    return deserialize_array_buffer(buffer)
+    const start = performance.now()
+    const res = deserialize_array_buffer(buffer)
+    const decodedFlatBuffers = reconstructVecVecU8(res ?? new Uint8Array())
+    const timeElapsed = performance.now() - start
+    console.debug(
+      `[${filename}][rust wasm][deserialize_array_buffer] time elapsed ${timeElapsed.toFixed(
+        2,
+      )}ms, decodedFlatBuffers=`,
+      decodedFlatBuffers,
+      `res=`,
+      res,
+    )
+
+    return timeElapsed
   } catch (error) {
     console.error("Error:", error)
   }
+}
+
+async function processProtobufs(
+  filename: string,
+  protobufBuffers: Uint8Array[],
+): Promise<number> {
+  const start = performance.now()
+  const container = new FlatBufferContainer()
+  await container.process_protobufs(protobufBuffers)
+  let result: Uint8Array[] = []
+  const bufferCount = container.get_flatbuffer_count()
+  for (let i = 0; i < bufferCount; i++) {
+    const flatBuffer = container.get_flatbuffer(i)
+    result.push(flatBuffer)
+  }
+  const timeElapsed = performance.now() - start
+  console.debug(
+    `[${filename}][rust wasm][process_protobufs] time elapsed ${timeElapsed.toFixed(
+      2,
+    )}ms result=`,
+    result,
+  )
+  return timeElapsed
 }
 
 const fetchBinary = async (fileName: string) => {
@@ -21,51 +56,64 @@ const fetchBinary = async (fileName: string) => {
   return res.arrayBuffer()
 }
 
-const js_native_deserialize_buffers = (buffers: Uint8Array[]) =>
-  buffers.map((data) => deserialize(data))
+const js_native_deserialize_buffers = (
+  filename: string,
+  buffers: Uint8Array[],
+) => {
+  const start = performance.now()
+  const decodedJsons = buffers.map((data) => deserialize(data))
+  const timeElapsed = performance.now() - start
+  console.debug(
+    `[${filename}][js][js_native_deserialize_buffers] time elapsed ${timeElapsed.toFixed(
+      2,
+    )}ms, decodedJsons=`,
+    decodedJsons,
+  )
+
+  return timeElapsed
+}
 
 type BenchmarkProps = {}
 
 const benchmarkTest = async (
   data: ArrayBuffer,
   filename: string,
-  wasmModule: InitOutput,
 ): Promise<void> => {
   // await init()
   const decoded = decodeUint8Arrays(data)
   const concatenated = concatenateUint8Arrays(decoded)
-  // * write concatenated into WebAssembly.Memory
-  const start2 = performance.now()
-  const res2_unit8Array = rustWasmDeserialize(concatenated)
-  const timeElapsed2 = performance.now() - start2
-  const reconstructed = reconstructVecVecU8(res2_unit8Array ?? new Uint8Array())
+
+  // * case 2 rust with Unit8Array encode and decode
+  const timeElapsed2 = rustWasmDeserialize(filename, concatenated)
+
+  // * native js
+  const timeElapsed = js_native_deserialize_buffers(filename, decoded)
+
+  // * case 3 rust with protobufs direct process
+  const timeElapsed3 = await processProtobufs(filename, decoded)
+
   console.debug(
-    `[${filename}][rust wasm] time elapsed ${timeElapsed2.toFixed(
+    `[${filename}][rustWasmDeserialize v.s JS] ${timeElapsed2.toFixed(
       2,
-    )}ms, res2_ptr=`,
-    res2_unit8Array,
-    "[reconstructed]",
-    reconstructed,
-  )
-
-  // Example usage:
-
-  const start = performance.now()
-  const res = js_native_deserialize_buffers(decoded)
-  const timeElapsed = performance.now() - start
-  console.debug(
-    `[${filename}][js] time elapsed ${timeElapsed.toFixed(2)}ms, res=`,
-    res,
-  )
-
-  console.debug(
-    `[${filename}][isEqual] res,res2 = `,
-    isEqual(res, res2_unit8Array),
-  )
-  console.debug(
-    `[${filename}]${timeElapsed2.toFixed(2)}/${timeElapsed.toFixed(
+    )}/${timeElapsed.toFixed(2)} = ${Number(timeElapsed2 / timeElapsed).toFixed(
       2,
-    )} = ${Number(timeElapsed2 / timeElapsed).toFixed(2)}x (lower the better)`,
+    )}x (lower the better)`,
+  )
+
+  console.debug(
+    `[${filename}][processProtobufs v.s JS] ${timeElapsed3.toFixed(
+      2,
+    )}/${timeElapsed.toFixed(2)} = ${Number(timeElapsed3 / timeElapsed).toFixed(
+      2,
+    )}x (lower the better)`,
+  )
+
+  console.debug(
+    `[${filename}][processProtobufs v.s rustWasmDeserialize] ${timeElapsed3.toFixed(
+      2,
+    )}/${timeElapsed2.toFixed(2)} = ${Number(
+      timeElapsed3 / timeElapsed2,
+    ).toFixed(2)}x (lower the better)`,
   )
 
   return
@@ -88,25 +136,31 @@ function reconstructVecVecU8(flattenedData: Uint8Array) {
   return results
 }
 
-async function runTest(wasmModule: InitOutput) {
-  // let data2 = await fetchBinary("10k_binary.bin")
-  // await benchmarkTest(data2, "10k_binary.bin")
-
+async function runTest() {
   let data = await fetchBinary("1k_binary.bin")
-  await benchmarkTest(data, "1k_binary.bin", wasmModule)
-
-  console.debug("[Finish]")
+  await benchmarkTest(data, "1k_binary.bin")
+}
+async function runTest10k() {
+  let data2 = await fetchBinary("10k_binary.bin")
+  await benchmarkTest(data2, "10k_binary.bin")
 }
 
 const Benchmark: FC<BenchmarkProps> = () => {
   let ran = useRef(false)
   useEffect(() => {
-    init().then((wasm) => {
-      wasm.memory.grow(100)
+    init().then(async (wasm) => {
       if (ran.current) return
 
       for (let i = 0; i < 10; i++) {
-        runTest(wasm)
+        await runTest()
+        console.debug(`[runTest][1k] ${i} finished`)
+      }
+
+      await Promise.resolve(setTimeout(() => {}, 5 * 1000))
+
+      for (let i = 0; i < 10; i++) {
+        await runTest10k()
+        console.debug(`[runTest][10k] ${i} finished`)
       }
 
       ran.current = true
