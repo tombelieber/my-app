@@ -1,0 +1,58 @@
+// Generated from my_model.proto
+
+namespace mypackage;
+
+table CustomMap {
+  b:[mypackage.CustomMap_.BEntry];
+  d:[mypackage.CustomMap_.DEntry];
+  s:[mypackage.CustomMap_.SEntry];
+  l:[mypackage.CustomMap_.LEntry];
+}
+
+namespace mypackage.CustomMap_;
+
+table BEntry {
+  key:string (key);
+  value:bool;
+}
+
+table DEntry {
+  key:string (key);
+  value:double;
+}
+
+table SEntry {
+  key:string (key);
+  value:string;
+}
+
+table LEntry {
+  key:string (key);
+  value:double;
+}
+
+namespace mypackage;
+
+table MyModel {
+  str1:string;
+  str2:string;
+  str3:string;
+  str4:string;
+  str5:string;
+  str6:string;
+  bool1:bool;
+  bool2:bool;
+  bool3:bool;
+  bool4:bool;
+  bool5:bool;
+  bool6:bool;
+  num1:double;
+  num2:double;
+  num3:double;
+  num4:double;
+  num5:double;
+  num6:double;
+  oMap:mypackage.CustomMap;
+  pMap:mypackage.CustomMap;
+}
+
