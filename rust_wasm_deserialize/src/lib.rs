@@ -3,18 +3,17 @@ use prost::Message;
 use wasm_bindgen::prelude::*;
 use web_sys::window;
 
-use flatbuffers::FlatBufferBuilder;
+use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, WIPOffset};
 // use my_model_generated::MyModel as FbMyModel; // Adjust import according to your generated code
 // use mypackage::my_model::MyModel as FbMyModel;
 mod my_model_generated;
 use my_model_generated::mypackage::{
-    custom_map_, CustomMap as FbCustomMap, CustomMapArgs as FbCustomMapArgs, CustomMapBuilder,
-    MyModel as FbMyModel, MyModelArgs as FbMyModelArgs, MyModelBuilder,
+    CustomMap as FbCustomMap, CustomMapArgs as FbCustomMapArgs, MyModel as FbMyModel,
+    MyModelArgs as FbMyModelArgs,
 };
 
 use my_model_generated::mypackage::custom_map_::{
-    BEntry, BEntryArgs, BEntryBuilder, DEntry, DEntryArgs, DEntryOffset, LEntry, LEntryArgs,
-    LEntryBuilder, SEntry, SEntryArgs, SEntryBuilder,
+    BEntry, BEntryArgs, DEntry, DEntryArgs, LEntry, LEntryArgs, SEntry, SEntryArgs,
 };
 
 // Include the generated module. The module name will be derived from your .proto file.
@@ -103,17 +102,13 @@ pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<Uint8Array, JsValue> {
 
     for model in models.iter() {
         let fb: Vec<u8> = encode_model_to_flatbuffer(model);
-        log(&format!("[wasm rust] fb: len={:?} fb={:?} ", fb.len(), fb));
-
         fb_models.push(fb);
     }
 
     // * print Vec<Vec<u8>>
     log(&format!(
-        "[wasm rust] fb_models: {:?}ms len={:?} fb_models={:?} ",
+        "[wasm rust] fb_models: {:?}ms",
         performance.now() - start_time,
-        fb_models.len(),
-        fb_models
     ));
 
     let flattened = flatten_vec_vec_u8(fb_models);
@@ -122,30 +117,24 @@ pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<Uint8Array, JsValue> {
 }
 
 pub fn encode_model_to_flatbuffer(model: &MyModel) -> Vec<u8> {
+    // * start encoding (building)
     let mut builder: FlatBufferBuilder<'_> = FlatBufferBuilder::new();
 
-    // * print Vec<Vec<u8>>
-    log(&format!(
-        "[wasm rust] [encode_model_to_flatbuffer] model: {:?}",
-        model
-    ));
+    // * prepare string
+    let str1_fb: WIPOffset<&str> = builder.create_string(&model.str1);
+    let str2_fb: WIPOffset<&str> = builder.create_string(&model.str2);
+    let str3_fb: WIPOffset<&str> = builder.create_string(&model.str3);
+    let str4_fb: WIPOffset<&str> = builder.create_string(&model.str4);
+    let str5_fb: WIPOffset<&str> = builder.create_string(&model.str5);
+    let str6_fb: WIPOffset<&str> = builder.create_string(&model.str6);
 
-    // TODO fix encode_model_to_flatbuffer, since it's only returnign [1,2,3]
-
-    // Example of setting fields - adjust according to your actual model's fields
-    let str1_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str1);
-    let str2_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str2);
-    let str3_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str3);
-    let str4_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str4);
-    let str5_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str5);
-    let str6_fb: flatbuffers::WIPOffset<&str> = builder.create_string(&model.str6);
-
-    let fb_o_map: Option<flatbuffers::WIPOffset<FbCustomMap<'_>>> =
+    // * o_map, p_map instances
+    let o_map_offset: Option<WIPOffset<FbCustomMap<'_>>> =
         build_fb_custom_map(&mut builder, &model.o_map);
-    let fb_p_map: Option<flatbuffers::WIPOffset<FbCustomMap<'_>>> =
+    let p_map_offset: Option<WIPOffset<FbCustomMap<'_>>> =
         build_fb_custom_map(&mut builder, &model.p_map);
 
-    let my_model_builder: flatbuffers::WIPOffset<FbMyModel<'_>> = FbMyModel::create(
+    let my_model_offset: WIPOffset<FbMyModel<'_>> = FbMyModel::create(
         &mut builder,
         &FbMyModelArgs {
             str1: Some(str1_fb),
@@ -166,32 +155,29 @@ pub fn encode_model_to_flatbuffer(model: &MyModel) -> Vec<u8> {
             num4: model.num4,
             num5: model.num5,
             num6: model.num6,
-            oMap: fb_o_map,
-            pMap: fb_p_map,
+            oMap: o_map_offset,
+            pMap: p_map_offset,
         },
     );
 
-    // * print Vec<Vec<u8>>
-    log(&format!(
-        "[wasm rust] [encode_model_to_flatbuffer] encoded_len={:?} encode_length_delimited_to_vec={:?}",
-        my_model_builder.encoded_len(),
-        my_model_builder.encode_length_delimited_to_vec()
-    ));
+    // * finish encoding (building)
+    builder.finish(my_model_offset, None);
 
-    my_model_builder.encode_to_vec()
+    let buffer: &[u8] = builder.finished_data();
+    buffer.to_vec()
 }
 
 fn build_fb_custom_map<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     custom_map: &Option<CustomMap>,
-) -> Option<flatbuffers::WIPOffset<FbCustomMap<'a>>> {
+) -> Option<WIPOffset<FbCustomMap<'a>>> {
     if let Some(map) = custom_map {
         // Process each map field, for example, b_map
         let b_entries: Vec<_> = map
             .b
             .iter()
             .map(|(key, &value)| {
-                let key_fb: flatbuffers::WIPOffset<&str> = builder.create_string(key);
+                let key_fb: WIPOffset<&str> = builder.create_string(key);
                 BEntry::create(
                     builder,
                     &BEntryArgs {
@@ -201,15 +187,14 @@ fn build_fb_custom_map<'a>(
                 )
             })
             .collect();
-        let b_vector: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<BEntry<'_>>>,
-        > = builder.create_vector(&b_entries);
+        let b_vector: WIPOffset<flatbuffers::Vector<'_, ForwardsUOffset<BEntry<'_>>>> =
+            builder.create_vector(&b_entries);
 
         let d_entries: Vec<_> = map
             .d
             .iter()
             .map(|(key, &value)| {
-                let key_fb: flatbuffers::WIPOffset<&str> = builder.create_string(key);
+                let key_fb: WIPOffset<&str> = builder.create_string(key);
                 DEntry::create(
                     builder,
                     &DEntryArgs {
@@ -219,15 +204,14 @@ fn build_fb_custom_map<'a>(
                 )
             })
             .collect();
-        let d_vector: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<DEntry<'_>>>,
-        > = builder.create_vector(&d_entries);
+        let d_vector: WIPOffset<flatbuffers::Vector<'_, ForwardsUOffset<DEntry<'_>>>> =
+            builder.create_vector(&d_entries);
 
         let l_entries: Vec<_> = map
             .l
             .iter()
             .map(|(key, &value)| {
-                let key_fb: flatbuffers::WIPOffset<&str> = builder.create_string(key);
+                let key_fb: WIPOffset<&str> = builder.create_string(key);
                 LEntry::create(
                     builder,
                     &LEntryArgs {
@@ -238,9 +222,8 @@ fn build_fb_custom_map<'a>(
             })
             .collect();
 
-        let l_vector: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<LEntry<'_>>>,
-        > = builder.create_vector(&l_entries);
+        let l_vector: WIPOffset<flatbuffers::Vector<'_, ForwardsUOffset<LEntry<'_>>>> =
+            builder.create_vector(&l_entries);
 
         let s_entries: Vec<_> = map
             .s
@@ -257,9 +240,8 @@ fn build_fb_custom_map<'a>(
                 )
             })
             .collect();
-        let s_vector: flatbuffers::WIPOffset<
-            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SEntry<'_>>>,
-        > = builder.create_vector(&s_entries);
+        let s_vector: WIPOffset<flatbuffers::Vector<'_, ForwardsUOffset<SEntry<'_>>>> =
+            builder.create_vector(&s_entries);
 
         // Process d_map, s_map, l_map similarly...
 
