@@ -70,6 +70,7 @@ impl FlatBufferContainer {
 
     #[wasm_bindgen]
     pub fn process_protobufs(&mut self, buffers: Vec<Uint8Array>) -> Result<(), JsValue> {
+        self.buffers.clear();
         let performance = window()
             .expect("should have a window in this context")
             .performance()

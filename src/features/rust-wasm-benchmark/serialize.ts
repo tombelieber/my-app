@@ -11,9 +11,9 @@ export function serialize(data: mypackage.IMyModel): Uint8Array {
   return mypackage.MyModel.encode(message).finish()
 }
 
-export function deserialize(data: Uint8Array): mypackage.MyModel {
+export function deserialize(data: Uint8Array): TMyModel {
   const message = mypackage.MyModel.decode(data)
   return mypackage.MyModel.toObject(message, {
     defaults: true,
-  }) as mypackage.MyModel
+  }) as TMyModel
 }

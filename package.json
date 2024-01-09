@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.8.1",
+    "flatbuffers": "^23.5.26",
     "lodash": "^4.17.21",
     "protobufjs": "^7.2.5",
     "react": "^18.2.0",

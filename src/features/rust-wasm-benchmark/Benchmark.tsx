@@ -1,73 +1,45 @@
+import { isEqual } from "lodash"
 import { FC, memo, useEffect, useRef } from "react"
-import init, {
-  FlatBufferContainer,
-  deserialize_array_buffer,
-} from "rust_wasm_deserialize"
-import { concatenateUint8Arrays } from "./concatenateUint8Arrays"
+import init, { FlatBufferContainer } from "rust_wasm_deserialize"
 import { decodeUint8Arrays } from "./saveAsFile"
-import { deserialize } from "./serialize"
-
-function rustWasmDeserialize(filename: string, buffer: Uint8Array): number {
-  try {
-    const start = performance.now()
-    const res = deserialize_array_buffer(buffer)
-    const decodedFlatBuffers = reconstructVecVecU8(res ?? new Uint8Array())
-    const timeElapsed = performance.now() - start
-    console.log(
-      `[${filename}][rustWasmDeserialize][time_elapsed] = ${timeElapsed.toFixed(
-        2,
-      )}ms`,
-    )
-
-    console.debug(
-      `[${filename}][rust wasm][deserialize_array_buffer] time elapsed ${timeElapsed.toFixed(
-        2,
-      )}ms, decodedFlatBuffers=`,
-      decodedFlatBuffers,
-      `res=`,
-      res,
-    )
-    return timeElapsed
-  } catch (error) {
-    console.error("Error:", error)
-    return 0
-  }
-}
+import { TMyModel, deserialize } from "./serialize"
+import { mapMyModelFBToJSON } from "./deserialize_fb"
 
 async function processProtobufs(
   filename: string,
   protobufBuffers: Uint8Array[],
-): Promise<number> {
+  container: FlatBufferContainer,
+): Promise<[number, TMyModel[]]> {
   const start = performance.now()
-  const container = new FlatBufferContainer()
+  // * process protobufs to flatbuffers
   await container.process_protobufs(protobufBuffers)
-  const start_get = performance.now()
-  let result: Uint8Array[] = []
+  console.debug(
+    `[${filename}][rust wasm][processProtobufs][process_protobufs][time_elapsed] = ${(
+      performance.now() - start
+    ).toFixed(2)}ms`,
+  )
+  // * convert to json
+  const start_decode_json = performance.now()
+  let results: TMyModel[] = []
   const bufferCount = container.get_flatbuffer_count()
   for (let i = 0; i < bufferCount; i++) {
     const flatBuffer = container.get_flatbuffer(i)
-    result.push(flatBuffer)
+    const myModelJSON = mapMyModelFBToJSON(flatBuffer)
+    results.push(myModelJSON)
   }
-  console.log(
-    `[${filename}][process_protobufs][read] = ${(
-      performance.now() - start_get
-    ).toFixed(2)}ms`,
-  )
-
-  const timeElapsed = performance.now() - start
-  console.log(
-    `[${filename}][process_protobufs][time_elapsed] = ${timeElapsed.toFixed(
+  console.debug(
+    `[${filename}][rust wasm][processProtobufs][mapMyModelFBToJSON][time_elapsed] = ${start_decode_json.toFixed(
       2,
     )}ms`,
   )
 
-  console.debug(
-    `[${filename}][rust wasm][process_protobufs] time elapsed ${timeElapsed.toFixed(
+  const timeElapsed = performance.now() - start
+  console.log(
+    `[${filename}][rust wasm][processProtobufs][total][results][time_elapsed] = ${timeElapsed.toFixed(
       2,
-    )}ms result=`,
-    result,
+    )}ms`,
   )
-  return timeElapsed
+  return [timeElapsed, results]
 }
 
 const fetchBinary = async (fileName: string) => {
@@ -78,96 +50,127 @@ const fetchBinary = async (fileName: string) => {
 const js_native_deserialize_buffers = (
   filename: string,
   buffers: Uint8Array[],
-) => {
+): [number, TMyModel[]] => {
   const start = performance.now()
   const decodedJsons = buffers.map((data) => deserialize(data))
   const timeElapsed = performance.now() - start
-
   console.log(
-    `[${filename}][js_native_deserialize_buffers][time_elapsed] = ${timeElapsed.toFixed(
+    `[${filename}][js][js_native_deserialize_buffers] time elapsed ${timeElapsed.toFixed(
       2,
     )}ms`,
   )
-
-  console.debug(
-    `[${filename}][js][js_native_deserialize_buffers] time elapsed ${timeElapsed.toFixed(
-      2,
-    )}ms, decodedJsons=`,
-    decodedJsons,
-  )
-
-  return timeElapsed
+  return [timeElapsed, decodedJsons]
 }
 
 type BenchmarkProps = {}
 
-const benchmarkTest = async (
-  data: ArrayBuffer,
-  filename: string,
-): Promise<void> => {
-  const decoded = decodeUint8Arrays(data)
-  const concatenated = concatenateUint8Arrays(decoded)
-
-  // * case 2 rust with Unit8Array encode and decode
-  const timeElapsed2 = rustWasmDeserialize(filename, concatenated)
-
-  // * native js
-  const timeElapsed = js_native_deserialize_buffers(filename, decoded)
-
-  // * case 3 rust with protobufs direct process
-  const timeElapsed3 = await processProtobufs(filename, decoded)
-
-  console.debug(
-    `[${filename}][rustWasmDeserialize v.s JS] ${timeElapsed2.toFixed(
-      2,
-    )}/${timeElapsed.toFixed(2)} = ${Number(timeElapsed2 / timeElapsed).toFixed(
-      2,
-    )}x (lower the better)`,
-  )
-
-  console.debug(
-    `[${filename}][processProtobufs v.s JS] ${timeElapsed3.toFixed(
-      2,
-    )}/${timeElapsed.toFixed(2)} = ${Number(timeElapsed3 / timeElapsed).toFixed(
-      2,
-    )}x (lower the better)`,
-  )
-
-  console.debug(
-    `[${filename}][processProtobufs v.s rustWasmDeserialize] ${timeElapsed3.toFixed(
-      2,
-    )}/${timeElapsed2.toFixed(2)} = ${Number(
-      timeElapsed3 / timeElapsed2,
-    ).toFixed(2)}x (lower the better)`,
-  )
-
-  return
-}
-
-function reconstructVecVecU8(flattenedData: Uint8Array) {
-  const results = []
-  let offset = 0
-
-  while (offset < flattenedData.length) {
-    const len = new DataView(flattenedData.buffer).getUint32(offset, true)
-    offset += 4
-    const vector = new Uint8Array(
-      flattenedData.buffer.slice(offset, offset + len),
-    )
-    results.push(vector)
-    offset += len
-  }
-
-  return results
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve()
+    }, ms) // 1000 milliseconds = 1 second
+  })
 }
 
 async function runTest() {
+  const iter = 20
+  const wait_time = 3 * 1000
+  console.log(
+    `runTest [iter] = ${iter}, [wait_time] = ${wait_time}ms, running in ${(
+      wait_time / 1000
+    ).toFixed(2)}s...`,
+  )
+  await delay(wait_time)
+
   let data = await fetchBinary("1k_binary.bin")
-  await benchmarkTest(data, "1k_binary.bin")
+  const start = performance.now()
+  const protoBuffers = decodeUint8Arrays(data)
+
+  // * run 10 times Rust WASM
+  const rust_results = await runRustTest(iter, "1k_binary.bin", protoBuffers)
+  console.log(
+    `completed, wait for ${(wait_time / 1000).toFixed(2)}s to run rust test...`,
+  )
+
+  await delay(wait_time)
+
+  // * run 10 times JS native
+  const js_results = await runJSTest(iter, "1k_binary.bin", protoBuffers)
+
+  const js_times = js_results.map((x) => x.timeElapsed)
+  const rust_times = rust_results.map((x) => x.timeElapsed)
+
+  console.log(`[js_times]`, js_times)
+  console.log(`[rust_times]`, rust_times)
+  console.log(
+    `[summary] [rust_times]/[js_times]`,
+    rust_times.map((x, i) => x / js_times[i]),
+    " (lower the better)",
+  )
+  console.log(
+    "[runTest][finished] total time",
+    (performance.now() - start).toFixed(2),
+    "ms",
+  )
+
+  // * compare results by comparing jsons is Equal
+  const isEquals: boolean[] = Array.from({ length: iter }).map((_, index) => {
+    const js_jsons = js_results[index].jsons
+    const rust_jsons = rust_results[index].jsons
+    return isEqual(js_jsons, rust_jsons)
+  })
+  console.log(`[isEquals] isAllEqual = ${isEquals.every((x) => x)}`, isEquals)
 }
-async function runTest10k() {
-  let data2 = await fetchBinary("10k_binary.bin")
-  await benchmarkTest(data2, "10k_binary.bin")
+
+type TestResult = {
+  type: "js" | "rust"
+  timeElapsed: number
+  jsons: TMyModel[]
+}
+
+const runJSTest = async (
+  count: number,
+  filename: string,
+  protoBuffers: Uint8Array[],
+): Promise<TestResult[]> => {
+  let resutls: TestResult[] = []
+  for (let index = 0; index < count; index++) {
+    // * native js
+    const [timeElapsed, js_jsons] = js_native_deserialize_buffers(
+      filename,
+      protoBuffers,
+    )
+    resutls.push({
+      type: "js",
+      timeElapsed,
+      jsons: js_jsons,
+    })
+  }
+  return resutls
+}
+
+const runRustTest = async (
+  count: number,
+  filename: string,
+  protoBuffers: Uint8Array[],
+): Promise<TestResult[]> => {
+  const flatBufferContainer = new FlatBufferContainer()
+  let resutls: TestResult[] = []
+
+  for (let index = 0; index < count; index++) {
+    // * native js
+    const [timeElapsed, fb_jsons] = await processProtobufs(
+      filename,
+      protoBuffers,
+      flatBufferContainer,
+    )
+    resutls.push({
+      type: "rust",
+      timeElapsed,
+      jsons: fb_jsons,
+    })
+  }
+  return resutls
 }
 
 const Benchmark: FC<BenchmarkProps> = () => {
@@ -176,10 +179,7 @@ const Benchmark: FC<BenchmarkProps> = () => {
     init().then(async (wasm) => {
       if (ran.current) return
 
-      for (let i = 0; i < 10; i++) {
-        await runTest()
-        console.debug(`[runTest][1k] ${i} finished`)
-      }
+      await runTest()
 
       // await Promise.resolve(setTimeout(() => {}, 5 * 1000))
 

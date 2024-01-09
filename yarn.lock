@@ -3116,6 +3116,11 @@ flat-cache@^3.0.4:
     keyv "^4.5.3"
     rimraf "^3.0.2"
 
+flatbuffers@^23.5.26:
+  version "23.5.26"
+  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-23.5.26.tgz#01358e272a61239f0faf3bfbe4e014f3ace9d746"
+  integrity sha512-vE+SI9vrJDwi1oETtTIFldC/o9GsVKRM+s6EL0nQgxXlYV1Vc4Tk30hj4xGICftInKQKj1F3up2n8UbIVobISQ==
+
 flatted@^3.2.9:
   version "3.2.9"
   resolved "https://registry.yarnpkg.com/flatted/-/flatted-3.2.9.tgz#7eb4c67ca1ba34232ca9d2d93e9886e611ad7daf"
@@ -4612,7 +4617,7 @@ run-parallel@^1.1.9:
     queue-microtask "^1.2.2"
 
 rust_wasm_deserialize@./rust_wasm_deserialize/pkg:
-  version "0.0.0"
+  version "0.1.0"
 
 safe-array-concat@^1.0.1:
   version "1.0.1"
