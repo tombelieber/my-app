@@ -76,10 +76,10 @@ export const mapMyModelFBToJSON = (buf: Uint8Array): TMyModel => {
     str5: myModelFb.str5() ?? "",
     str6: myModelFb.str6() ?? "",
 
-    oMap: convertCustomMapFb(myModelFb.oMap()),
-    pMap: convertCustomMapFb(myModelFb.pMap()),
-    // oMap: {},
-    // pMap: {},
+    // oMap: convertCustomMapFb(myModelFb.oMap()),
+    // pMap: convertCustomMapFb(myModelFb.pMap()),
+    oMap: {},
+    pMap: {},
   }
   return myModel
 }
