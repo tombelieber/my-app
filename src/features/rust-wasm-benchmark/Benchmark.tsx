@@ -13,6 +13,12 @@ function rustWasmDeserialize(filename: string, buffer: Uint8Array): number {
     const res = deserialize_array_buffer(buffer)
     const decodedFlatBuffers = reconstructVecVecU8(res ?? new Uint8Array())
     const timeElapsed = performance.now() - start
+    console.log(
+      `[${filename}][rustWasmDeserialize][time_elapsed] = ${timeElapsed.toFixed(
+        2,
+      )}ms`,
+    )
+
     console.debug(
       `[${filename}][rust wasm][deserialize_array_buffer] time elapsed ${timeElapsed.toFixed(
         2,
@@ -21,10 +27,10 @@ function rustWasmDeserialize(filename: string, buffer: Uint8Array): number {
       `res=`,
       res,
     )
-
     return timeElapsed
   } catch (error) {
     console.error("Error:", error)
+    return 0
   }
 }
 
@@ -35,13 +41,26 @@ async function processProtobufs(
   const start = performance.now()
   const container = new FlatBufferContainer()
   await container.process_protobufs(protobufBuffers)
+  const start_get = performance.now()
   let result: Uint8Array[] = []
   const bufferCount = container.get_flatbuffer_count()
   for (let i = 0; i < bufferCount; i++) {
     const flatBuffer = container.get_flatbuffer(i)
     result.push(flatBuffer)
   }
+  console.log(
+    `[${filename}][process_protobufs][read] = ${(
+      performance.now() - start_get
+    ).toFixed(2)}ms`,
+  )
+
   const timeElapsed = performance.now() - start
+  console.log(
+    `[${filename}][process_protobufs][time_elapsed] = ${timeElapsed.toFixed(
+      2,
+    )}ms`,
+  )
+
   console.debug(
     `[${filename}][rust wasm][process_protobufs] time elapsed ${timeElapsed.toFixed(
       2,
@@ -63,6 +82,13 @@ const js_native_deserialize_buffers = (
   const start = performance.now()
   const decodedJsons = buffers.map((data) => deserialize(data))
   const timeElapsed = performance.now() - start
+
+  console.log(
+    `[${filename}][js_native_deserialize_buffers][time_elapsed] = ${timeElapsed.toFixed(
+      2,
+    )}ms`,
+  )
+
   console.debug(
     `[${filename}][js][js_native_deserialize_buffers] time elapsed ${timeElapsed.toFixed(
       2,
@@ -79,7 +105,6 @@ const benchmarkTest = async (
   data: ArrayBuffer,
   filename: string,
 ): Promise<void> => {
-  // await init()
   const decoded = decodeUint8Arrays(data)
   const concatenated = concatenateUint8Arrays(decoded)
 
@@ -156,12 +181,12 @@ const Benchmark: FC<BenchmarkProps> = () => {
         console.debug(`[runTest][1k] ${i} finished`)
       }
 
-      await Promise.resolve(setTimeout(() => {}, 5 * 1000))
+      // await Promise.resolve(setTimeout(() => {}, 5 * 1000))
 
-      for (let i = 0; i < 10; i++) {
-        await runTest10k()
-        console.debug(`[runTest][10k] ${i} finished`)
-      }
+      // for (let i = 0; i < 10; i++) {
+      //   await runTest10k()
+      //   console.debug(`[runTest][10k] ${i} finished`)
+      // }
 
       ran.current = true
     })

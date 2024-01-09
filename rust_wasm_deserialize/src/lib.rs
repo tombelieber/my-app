@@ -70,18 +70,25 @@ impl FlatBufferContainer {
 
     #[wasm_bindgen]
     pub fn process_protobufs(&mut self, buffers: Vec<Uint8Array>) -> Result<(), JsValue> {
+        let performance = window()
+            .expect("should have a window in this context")
+            .performance()
+            .expect("performance should be available");
+
+        let mut start_time: f64 = performance.now();
         for buffer in buffers {
-            let mut bytes: Vec<u8> = vec![0; buffer.length() as usize];
-            buffer.copy_to(&mut bytes);
-
-            // Decode the Protobuf binary
-            let decoded_model: MyModel = MyModel::decode(&*bytes)
+            let buf = &*buffer.to_vec();
+            let decoded_model: MyModel = MyModel::decode(buf)
                 .map_err(|e: prost::DecodeError| JsValue::from_str(&e.to_string()))?;
-
             // Encode to FlatBuffer
             let fb: Vec<u8> = encode_model_to_flatbuffer(&decoded_model); // Your existing function
             self.buffers.push(fb);
         }
+
+        log(&format!(
+            "[wasm rust][process_protobufs]: {:?}ms",
+            performance.now() - start_time
+        ));
         Ok(())
     }
     pub fn add_buffer(&mut self, buffer: Vec<u8>) {
