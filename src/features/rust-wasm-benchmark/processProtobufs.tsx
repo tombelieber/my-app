@@ -1,4 +1,7 @@
-import { FlatBufferContainer } from "rust_wasm_deserialize"
+import {
+  FlatBufferContainer,
+  process_single_protobuf,
+} from "rust_wasm_deserialize"
 import { TMyModel } from "./serialize"
 import { mapMyModelFBToJSON } from "./deserialize_fb"
 
@@ -19,17 +22,12 @@ export async function processProtobufs(
   )
   // * convert to json
   const start_decode_json = performance.now()
-  let results: TMyModel[] = []
-  const bufferCount = container.get_flatbuffer_count()
-  for (let i = 0; i < bufferCount; i++) {
-    const flatBuffer = container.get_flatbuffer(i)
-    const myModelJSON = mapMyModelFBToJSON(flatBuffer)
-    results.push(myModelJSON)
-  }
+  let results: TMyModel[] = container.get_fb_list().map(mapMyModelFBToJSON)
   console.debug(
-    `[${filename}][rust wasm][processProtobufs][mapMyModelFBToJSON][time_elapsed] = ${start_decode_json.toFixed(
-      2,
-    )}ms`,
+    `[${filename}][rust wasm][processProtobufs][mapMyModelFBToJSON][time_elapsed] = ${(
+      performance.now() - start_decode_json
+    ).toFixed(2)}ms`,
+    "results",
   )
 
   const timeElapsed = performance.now() - start
@@ -37,6 +35,43 @@ export async function processProtobufs(
     `[${
       iter + 1
     }/${total}][${filename}][rust wasm][processProtobufs][total][results][time_elapsed] = ${timeElapsed.toFixed(
+      2,
+    )}ms`,
+  )
+  return [timeElapsed, results]
+}
+
+export async function processProtobufsWithSingle(
+  filename: string,
+  protobufBuffers: Uint8Array[],
+  iter: number,
+  total: number,
+): Promise<[number, TMyModel[]]> {
+  const start = performance.now()
+
+  // * process protobufs to flatbuffers
+  const fbs = protobufBuffers.map(process_single_protobuf)
+  console.debug(
+    `[${filename}][rust wasm][processProtobufsWithSingle][process_protobufs][time_elapsed] = ${(
+      performance.now() - start
+    ).toFixed(2)}ms`,
+  )
+
+  // * convert to json
+  const start_decode_json = performance.now()
+  let results: TMyModel[] = fbs.map(mapMyModelFBToJSON)
+  console.debug(
+    `[${filename}][rust wasm][processProtobufsWithSingle][mapMyModelFBToJSON][time_elapsed] = ${(
+      performance.now() - start_decode_json
+    ).toFixed(2)}ms`,
+    "results",
+  )
+
+  const timeElapsed = performance.now() - start
+  console.log(
+    `[${
+      iter + 1
+    }/${total}][${filename}][rust wasm][processProtobufsWithSingle][total][results][time_elapsed] = ${timeElapsed.toFixed(
       2,
     )}ms`,
   )

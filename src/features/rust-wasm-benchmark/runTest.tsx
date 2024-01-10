@@ -2,7 +2,10 @@ import { isEqual } from "lodash"
 import { FlatBufferContainer } from "rust_wasm_deserialize"
 import { decodeUint8Arrays } from "./saveAsFile"
 import { TMyModel } from "./serialize"
-import { processProtobufs } from "./processProtobufs"
+import {
+  processProtobufs,
+  processProtobufsWithSingle,
+} from "./processProtobufs"
 import { js_native_deserialize_buffers } from "./js_native_deserialize_buffers"
 import { delay, fetchBinary } from "./utils"
 
@@ -38,7 +41,16 @@ export async function runTest({ filename, iter, wait_time }: TestConfig) {
   await delay(wait_time)
 
   // * run 10 times JS native
-  const js_results = await runJSTest(iter, filename, protoBuffers)
+  const js_results = await runRustTest2(iter, filename, protoBuffers)
+
+  // const [, js_answers] = js_native_deserialize_buffers(
+  //   filename,
+  //   protoBuffers,
+  //   0,
+  //   1,
+  // )
+
+  await delay(wait_time)
 
   // * [Summary]
   // * compare results by comparing timeElapsed
@@ -63,6 +75,7 @@ export async function runTest({ filename, iter, wait_time }: TestConfig) {
     const rust_jsons = rust_results[index].jsons
     return isEqual(js_jsons, rust_jsons)
   })
+
   console.log(`[isEquals] isAllEqual = ${isEquals.every((x) => x)}`, isEquals)
   console.log(
     `************************************************ [runTest][finished] total time ${(
@@ -110,6 +123,31 @@ const runRustTest = async (
       index,
       count,
     )
+
+    resutls.push({
+      type: "rust",
+      timeElapsed,
+      jsons: fb_jsons,
+    })
+  }
+  return resutls
+}
+
+const runRustTest2 = async (
+  count: number,
+  filename: string,
+  protoBuffers: Uint8Array[],
+): Promise<TestResult[]> => {
+  let resutls: TestResult[] = []
+  for (let index = 0; index < count; index++) {
+    // * native js
+    const [timeElapsed, fb_jsons] = await processProtobufsWithSingle(
+      filename,
+      protoBuffers,
+      index,
+      count,
+    )
+
     resutls.push({
       type: "rust",
       timeElapsed,

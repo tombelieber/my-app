@@ -1,52 +1,22 @@
+use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, WIPOffset};
 use js_sys::Uint8Array;
 use prost::Message;
 use wasm_bindgen::prelude::*;
-use web_sys::window;
-
-use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, WIPOffset};
-// use my_model_generated::MyModel as FbMyModel; // Adjust import according to your generated code
-// use mypackage::my_model::MyModel as FbMyModel;
 mod my_model_generated;
+use my_model::{CustomMap, MyModel};
+use my_model_generated::mypackage::custom_map_::{
+    BEntry, BEntryArgs, DEntry, DEntryArgs, LEntry, LEntryArgs, SEntry, SEntryArgs,
+};
 use my_model_generated::mypackage::{
     CustomMap as FbCustomMap, CustomMapArgs as FbCustomMapArgs, MyModel as FbMyModel,
     MyModelArgs as FbMyModelArgs,
 };
-
-use my_model_generated::mypackage::custom_map_::{
-    BEntry, BEntryArgs, DEntry, DEntryArgs, LEntry, LEntryArgs, SEntry, SEntryArgs,
-};
-
 // Include the generated module. The module name will be derived from your .proto file.
 pub mod my_model {
     include!(concat!(env!("OUT_DIR"), "/mypackage.rs"));
 }
 
 // Use the generated types from your .proto file.
-use my_model::{CustomMap, MyModel};
-
-#[wasm_bindgen]
-pub fn deserialize_to_json(
-    data_ptr: *const u8,
-    data_len: usize,
-    lengths_ptr: *const u32,
-    lengths_len: usize,
-) -> Result<JsValue, JsValue> {
-    let data = unsafe { std::slice::from_raw_parts(data_ptr, data_len) };
-    let lengths = unsafe { std::slice::from_raw_parts(lengths_ptr, lengths_len) };
-
-    let mut offset = 0;
-    let mut models = Vec::new();
-    for &len in lengths {
-        let end = offset + len as usize;
-        let my_model = MyModel::decode(&data[offset..end])
-            .map_err(|e| JsValue::from_str(&format!("Failed to decode Protobuf: {}", e)))?;
-        models.push(my_model);
-        offset = end;
-    }
-
-    JsValue::from_serde(&models)
-        .map_err(|e| JsValue::from_str(&format!("Failed to serialize to JSON: {}", e)))
-}
 
 #[wasm_bindgen]
 extern "C" {
@@ -71,12 +41,6 @@ impl FlatBufferContainer {
     #[wasm_bindgen]
     pub fn process_protobufs(&mut self, buffers: Vec<Uint8Array>) -> Result<(), JsValue> {
         self.buffers.clear();
-        let performance = window()
-            .expect("should have a window in this context")
-            .performance()
-            .expect("performance should be available");
-
-        let mut start_time: f64 = performance.now();
         for buffer in buffers {
             let buf = &*buffer.to_vec();
             let decoded_model: MyModel = MyModel::decode(buf)
@@ -85,11 +49,6 @@ impl FlatBufferContainer {
             let fb: Vec<u8> = encode_model_to_flatbuffer(&decoded_model); // Your existing function
             self.buffers.push(fb);
         }
-
-        log(&format!(
-            "[wasm rust][process_protobufs]: {:?}ms",
-            performance.now() - start_time
-        ));
         Ok(())
     }
     pub fn add_buffer(&mut self, buffer: Vec<u8>) {
@@ -125,6 +84,16 @@ impl FlatBufferContainer {
             .ok_or_else(|| JsValue::from_str("Index out of bounds"))
     }
 
+    // * return buffers to JS
+    pub fn get_fb_list(&self) -> Vec<Uint8Array> {
+        let mut fb_list: Vec<Uint8Array> = Vec::new();
+        for buffer in self.buffers.iter() {
+            let uint8_array = unsafe { Uint8Array::view(&buffer) };
+            fb_list.push(uint8_array);
+        }
+        fb_list
+    }
+
     #[wasm_bindgen]
     pub fn get_flatbuffer_count(&self) -> usize {
         self.buffers.len()
@@ -132,65 +101,11 @@ impl FlatBufferContainer {
 }
 
 #[wasm_bindgen]
-pub fn process_array_buffer(pointer: *const u8, length: usize) {
-    let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
-    log(&format!("[wasm rust] received binary {:?}", slice));
-    // Process the slice here...
-}
-
-#[wasm_bindgen]
-pub fn deserialize_array_buffer(buffer: &[u8]) -> Result<Uint8Array, JsValue> {
-    let performance = window()
-        .expect("should have a window in this context")
-        .performance()
-        .expect("performance should be available");
-    let mut start_time: f64 = performance.now();
-
-    let mut offset = 0;
-    let mut models: Vec<MyModel> = Vec::new();
-
-    while offset < buffer.len() {
-        // Read the length of the current Uint8Array (assuming 32-bit unsigned integer)
-        let len = u32::from_le_bytes([
-            buffer[offset],
-            buffer[offset + 1],
-            buffer[offset + 2],
-            buffer[offset + 3],
-        ]) as usize;
-        offset += 4;
-
-        // Read the Uint8Array
-        let data = &buffer[offset..offset + len];
-        let my_model = MyModel::decode(data)
-            .map_err(|e| JsValue::from_str(&format!("Failed to decode: {}", e)))?;
-        models.push(my_model);
-
-        offset += len;
-    }
-
-    log(&format!(
-        "[wasm rust] process protobuf: {:?}ms",
-        performance.now() - start_time
-    ));
-
-    start_time = performance.now();
-    // * for each model, use `encode_model_to_flatbuffer` and return a list of encoded buffers
-    let mut fb_models: Vec<Vec<u8>> = Vec::new();
-
-    for model in models.iter() {
-        let fb: Vec<u8> = encode_model_to_flatbuffer(model);
-        fb_models.push(fb);
-    }
-
-    // * print Vec<Vec<u8>>
-    log(&format!(
-        "[wasm rust] fb_models: {:?}ms",
-        performance.now() - start_time,
-    ));
-
-    let flattened = flatten_vec_vec_u8(fb_models);
-    // Convert the Rust Vec<u8> into a Uint8Array
-    Ok(Uint8Array::from(&flattened[..]))
+pub fn process_single_protobuf(buffer: &[u8]) -> Result<Vec<u8>, JsValue> {
+    let decoded_model = MyModel::decode(buffer)
+        .map_err(|e| JsValue::from_str(&format!("Decoding error: {}", e)))?;
+    let fb: Vec<u8> = encode_model_to_flatbuffer(&decoded_model);
+    Ok(fb)
 }
 
 pub fn encode_model_to_flatbuffer(model: &MyModel) -> Vec<u8> {
@@ -334,13 +249,4 @@ fn build_fb_custom_map<'a>(
     } else {
         None
     }
-}
-
-fn flatten_vec_vec_u8(vecs: Vec<Vec<u8>>) -> Vec<u8> {
-    let mut buffer = Vec::new();
-    for vec in vecs {
-        buffer.extend((vec.len() as u32).to_le_bytes());
-        buffer.extend(vec);
-    }
-    buffer
 }
