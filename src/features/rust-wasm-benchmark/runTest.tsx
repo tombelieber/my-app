@@ -50,41 +50,51 @@ export async function runTest({ filename, iter, wait_time }: TestConfig) {
 
   await delay(wait_time)
 
-  const [, js_answers] = js_native_deserialize_buffers(
-    filename,
-    protoBuffers,
-    0,
-    1,
-  )
-  const js_results_without_o_p = clone(
-    js_answers.map((e) => ({ ...e, oMap: {}, pMap: {} })),
-  )
+  const js_results = await runJSTest(iter, filename, protoBuffers)
+
+  await delay(wait_time)
 
   await delay(wait_time)
 
   // * [Summary]
   // * compare results by comparing timeElapsed
+  const js_times = js_results.map((x) => x.timeElapsed)
   const rust_times_2 = rust_results_2.map((x) => x.timeElapsed)
   const rust_times = rust_results.map((x) => x.timeElapsed)
-  const rust_over_rust_times2 = Array.from({ length: iter }).map(
+  const rust_2_over_rust_times = Array.from({ length: iter }).map(
     (_, index) => rust_times_2[index] / rust_times[index],
   )
+  const rust_2_over_js_times = Array.from({ length: iter }).map(
+    (_, index) => rust_times_2[index] / js_times[index],
+  )
+
   console.log(
-    `[summary] [rust_times2]/[rust_times]`,
-    rust_over_rust_times2,
-    " (lower the better)",
+    `[summary] [rust_times2]/[rust_times]  (lower the better)`,
+    rust_2_over_rust_times,
+    "[rust_times2]/[js_times]  (lower the better)",
+    rust_2_over_js_times,
     `[rust_times2]`,
     rust_times_2,
     `[rust_times]`,
     rust_times,
+    `[js_times]`,
+    js_times,
+  )
+
+  const js_results_without_o_p = js_results.map(({ jsons }) =>
+    jsons.map((e) => ({
+      ...e,
+      oMap: {},
+      pMap: {},
+    })),
   )
 
   // * compare results by comparing jsons is Equal
-  const is_rust_equal_to_js = rust_results.map(({ jsons }) =>
-    isEqual(jsons, js_results_without_o_p),
+  const is_rust_equal_to_js = rust_results.map(({ jsons }, i) =>
+    isEqual(jsons, js_results_without_o_p[i]),
   )
-  const is_rust_2_equal_to_js = rust_results_2.map(({ jsons }) =>
-    isEqual(jsons, js_results_without_o_p),
+  const is_rust_2_equal_to_js = rust_results_2.map(({ jsons }, i) =>
+    isEqual(jsons, js_results_without_o_p[i]),
   )
 
   console.log(

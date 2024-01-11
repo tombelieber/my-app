@@ -1,39 +1,88 @@
-import { FC, memo, useEffect, useRef } from "react"
+import { FC, memo, useEffect, useRef, useState } from "react"
 import init from "rust_wasm_deserialize"
 import { runTest } from "./runTest"
 import { delay } from "./utils"
 
 // * 10 -> 6s, 20 -> 9s, 30 -> 14s, 50 -> 19s
-const iter = 20
+
 const wait_time = 2 * 1000
 
 type BenchmarkProps = {}
 const Benchmark: FC<BenchmarkProps> = () => {
-  let ran = useRef(false)
-  useEffect(() => {
+  const [iter, setIter] = useState(20)
+  const [checkboxOptions, setCheckboxOptions] = useState({
+    "1k": true,
+    "10k": false,
+  })
+
+  const handleIterChange = (e) => {
+    setIter(e.target.value)
+  }
+
+  const handleCheckboxChange = (option) => {
+    setCheckboxOptions((prev) => ({
+      ...prev,
+      [option]: !prev[option],
+    }))
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    // Handle form submission logic here
+    console.log({ iter, checkboxOptions })
+
     init().then(async (wasm) => {
-      if (ran.current) return
-      console.log(`start 1k in ${wait_time / 1000}s...`)
-      await delay(wait_time)
-      await runTest({
-        filename: "1k_binary.bin",
-        iter,
-        wait_time,
-      })
-      // console.log(`start 10k in ${wait_time / 1000}s...`)
-      // await delay(wait_time)
-      // await runTest({
-      //   filename: "10k_binary.bin",
-      //   iter,
-      //   wait_time,
-      // })
-      ran.current = true
+      if (checkboxOptions["1k"]) {
+        console.log(`start 1k in ${wait_time / 1000}s...`)
+        await delay(wait_time)
+        await runTest({
+          filename: "1k_binary.bin",
+          iter,
+          wait_time,
+        })
+      }
+
+      if (checkboxOptions["10k"]) {
+        console.log(`start 10k in ${wait_time / 1000}s...`)
+        await delay(wait_time)
+        await runTest({
+          filename: "10k_binary.bin",
+          iter,
+          wait_time,
+        })
+      }
     })
-  }, [])
+  }
 
   return (
     <>
-      <button
+      <form onSubmit={handleSubmit}>
+        <label>
+          Iter:
+          <input type="number" value={iter} onChange={handleIterChange} />
+        </label>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={checkboxOptions["1k"]}
+              onChange={() => handleCheckboxChange("1k")}
+            />
+            1k
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={checkboxOptions["10k"]}
+              onChange={() => handleCheckboxChange("10k")}
+            />
+            10k
+          </label>
+        </div>
+        <button type="submit">Run</button>
+      </form>
+      {/* * write a component to take Number input, with label = "iter count" */}
+      {/* <button
         onClick={() => {
           // * save serialize_data_1k_binary as file
           // saveAsFile(serialize_data_1k_binary, "1k_binary.bin")
@@ -43,7 +92,7 @@ const Benchmark: FC<BenchmarkProps> = () => {
         }}
       >
         save binary
-      </button>
+      </button> */}
     </>
   )
 }
