@@ -72,12 +72,11 @@ pub fn process_single_protobuf(buffer: &[u8]) -> Result<Vec<u8>, JsValue> {
     Ok(fb)
 }
 
-// * this is slower by ~10% to FlatBufferContainer 11.85/11.03 = 1.07, 1.14/1.08 = 1.05
 #[wasm_bindgen]
 pub fn batch_process_proto_buffers_to_flat_buffers(
     proto_buffers: Vec<Uint8Array>,
 ) -> Result<Vec<Uint8Array>, JsValue> {
-    let mut flat_buffers: Vec<Uint8Array> = Vec::new();
+    let mut fbs: Vec<Uint8Array> = Vec::with_capacity(proto_buffers.len());
 
     for proto_buf in proto_buffers {
         // Prepare a buffer to copy the Uint8Array contents into
@@ -85,9 +84,11 @@ pub fn batch_process_proto_buffers_to_flat_buffers(
         proto_buf.copy_to(&mut buf);
         let fb: Vec<u8> = protobuf_to_flatbuffer(&*buf, encode_model_to_flatbuffer)
             .map_err(|e: prost::DecodeError| JsValue::from_str(&e.to_string()))?;
-        flat_buffers.push(Uint8Array::from(&fb[..]));
+        let uint8_array = unsafe { Uint8Array::view(&fb) };
+        fbs.push(uint8_array);
     }
-    Ok(flat_buffers)
+
+    Ok(fbs)
 }
 
 // // * 20% slower

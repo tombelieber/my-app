@@ -5,9 +5,9 @@ import { TMyModel } from "./serialize"
 export async function processProtobufs(
   filename: string,
   protobufBuffers: Uint8Array[],
-  container: FlatBufferContainer,
   iter: number,
   total: number,
+  container: FlatBufferContainer,
 ): Promise<[number, TMyModel[]]> {
   const start = performance.now()
   // * process protobufs to flatbuffers

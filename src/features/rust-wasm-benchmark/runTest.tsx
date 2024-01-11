@@ -1,10 +1,10 @@
 import { clone, isEqual } from "lodash"
 import { FlatBufferContainer } from "rust_wasm_deserialize"
-import { decodeUint8Arrays } from "./saveAsFile"
-import { TMyModel } from "./serialize"
+import { js_native_deserialize_buffers } from "./js_native_deserialize_buffers"
 import { processProtobufs } from "./processProtobufs"
 import { processProtobufsNew } from "./processProtobufsNew"
-import { js_native_deserialize_buffers } from "./js_native_deserialize_buffers"
+import { decodeUint8Arrays } from "./saveAsFile"
+import { TMyModel } from "./serialize"
 import { delay, fetchBinary } from "./utils"
 
 export type TestConfig = {
@@ -137,9 +137,9 @@ const runRustTest = async (
     const [timeElapsed, fb_jsons] = await processProtobufs(
       filename,
       protoBuffers,
-      flatBufferContainer,
       index,
       count,
+      flatBufferContainer,
     )
 
     resutls.push({
