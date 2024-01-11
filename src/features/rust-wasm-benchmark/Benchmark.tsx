@@ -15,18 +15,18 @@ const Benchmark: FC<BenchmarkProps> = () => {
     "10k": false,
   })
 
-  const handleIterChange = (e) => {
-    setIter(e.target.value)
+  const handleIterChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    setIter(Number(e.target.value))
   }
 
-  const handleCheckboxChange = (option) => {
+  const handleCheckboxChange = (option: "1k" | "10k") => {
     setCheckboxOptions((prev) => ({
       ...prev,
       [option]: !prev[option],
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault()
     // Handle form submission logic here
     console.log({ iter, checkboxOptions })
