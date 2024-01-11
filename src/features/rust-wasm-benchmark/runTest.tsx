@@ -1,11 +1,9 @@
-import { isEqual } from "lodash"
+import { clone, isEqual } from "lodash"
 import { FlatBufferContainer } from "rust_wasm_deserialize"
 import { decodeUint8Arrays } from "./saveAsFile"
 import { TMyModel } from "./serialize"
-import {
-  processProtobufs,
-  processProtobufsWithSingle,
-} from "./processProtobufs"
+import { processProtobufs } from "./processProtobufs"
+import { processProtobufsNew } from "./processProtobufsNew"
 import { js_native_deserialize_buffers } from "./js_native_deserialize_buffers"
 import { delay, fetchBinary } from "./utils"
 
@@ -35,48 +33,68 @@ export async function runTest({ filename, iter, wait_time }: TestConfig) {
   // * run 10 times Rust WASM
   const rust_results = await runRustTest(iter, filename, protoBuffers)
   console.log(
-    `completed, wait for ${(wait_time / 1000).toFixed(2)}s to run rust test...`,
+    `[rust] completed, wait for ${(wait_time / 1000).toFixed(
+      2,
+    )}s to run rust2 test...`,
   )
 
   await delay(wait_time)
 
   // * run 10 times JS native
-  const js_results = await runRustTest2(iter, filename, protoBuffers)
+  const rust_results_2 = await runRustTest2(iter, filename, protoBuffers)
+  console.log(
+    `[rust2] completed, wait for ${(wait_time / 1000).toFixed(
+      2,
+    )}s to run JS...`,
+  )
 
-  // const [, js_answers] = js_native_deserialize_buffers(
-  //   filename,
-  //   protoBuffers,
-  //   0,
-  //   1,
-  // )
+  await delay(wait_time)
+
+  const [, js_answers] = js_native_deserialize_buffers(
+    filename,
+    protoBuffers,
+    0,
+    1,
+  )
+  const js_results_without_o_p = clone(
+    js_answers.map((e) => ({ ...e, oMap: {}, pMap: {} })),
+  )
 
   await delay(wait_time)
 
   // * [Summary]
   // * compare results by comparing timeElapsed
-  const js_times = js_results.map((x) => x.timeElapsed)
+  const rust_times_2 = rust_results_2.map((x) => x.timeElapsed)
   const rust_times = rust_results.map((x) => x.timeElapsed)
-  const rust_over_js_times = Array.from({ length: iter }).map(
-    (_, index) => rust_times[index] / js_times[index],
+  const rust_over_rust_times2 = Array.from({ length: iter }).map(
+    (_, index) => rust_times_2[index] / rust_times[index],
   )
   console.log(
-    `[summary] [rust_times]/[js_times]`,
-    rust_over_js_times,
+    `[summary] [rust_times2]/[rust_times]`,
+    rust_over_rust_times2,
     " (lower the better)",
-    `[js_times]`,
-    js_times,
+    `[rust_times2]`,
+    rust_times_2,
     `[rust_times]`,
     rust_times,
   )
 
   // * compare results by comparing jsons is Equal
-  const isEquals: boolean[] = Array.from({ length: iter }).map((_, index) => {
-    const js_jsons = js_results[index].jsons
-    const rust_jsons = rust_results[index].jsons
-    return isEqual(js_jsons, rust_jsons)
-  })
+  const is_rust_equal_to_js = rust_results.map(({ jsons }) =>
+    isEqual(jsons, js_results_without_o_p),
+  )
+  const is_rust_2_equal_to_js = rust_results_2.map(({ jsons }) =>
+    isEqual(jsons, js_results_without_o_p),
+  )
 
-  console.log(`[isEquals] isAllEqual = ${isEquals.every((x) => x)}`, isEquals)
+  console.log(
+    `[isEquals] rust = ${is_rust_equal_to_js.every((x) => x)}`,
+    is_rust_equal_to_js,
+  )
+  console.log(
+    `[isEquals] rust_2 = ${is_rust_2_equal_to_js.every((x) => x)}`,
+    is_rust_equal_to_js,
+  )
   console.log(
     `************************************************ [runTest][finished] total time ${(
       performance.now() - start
@@ -141,7 +159,7 @@ const runRustTest2 = async (
   let resutls: TestResult[] = []
   for (let index = 0; index < count; index++) {
     // * native js
-    const [timeElapsed, fb_jsons] = await processProtobufsWithSingle(
+    const [timeElapsed, fb_jsons] = await processProtobufsNew(
       filename,
       protoBuffers,
       index,

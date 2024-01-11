@@ -20,13 +20,13 @@ const Benchmark: FC<BenchmarkProps> = () => {
         iter,
         wait_time,
       })
-      console.log(`start 10k in ${wait_time / 1000}s...`)
-      await delay(wait_time)
-      await runTest({
-        filename: "10k_binary.bin",
-        iter,
-        wait_time,
-      })
+      // console.log(`start 10k in ${wait_time / 1000}s...`)
+      // await delay(wait_time)
+      // await runTest({
+      //   filename: "10k_binary.bin",
+      //   iter,
+      //   wait_time,
+      // })
       ran.current = true
     })
   }, [])
